@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Integer Sequencer</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+    /*
+
+     User input
+     - speed
+     - choose integer sequence (from predefined lise)
+     - root note
+     - scale (choose from predeined scales)
+     - octave range (1 to full 88 / 108 key piano keyboard)
+     - note length (specific or randdmised)
+     - set colour, random or fixed
+     - set max radius
+
+     TODO
+     - [DONE] add canvas to HTML page
+     - [DONE] draw at certain frame rate / BPM
+     - [DONE] create Droplet class that draws an animated circle at provided position
+     - add selection of scale
+
+     improvements
+     - [DONE] improve scaling of droplets with easing
+     - improve timing using html5rocks article for rock solid timing
+
+     RESOURCES
+     - timing:
+     + https://www.html5rocks.com/en/tutorials/audio/scheduling/
+     + https://stackoverflow.com/questions/19764018/controlling-fps-with-requestanimationframe
+
+     */
+
+    const BPM = 140;
+    // const FPS = 60; // requestAnimationFrame frame rate
+    const HEIGHT = window.innerHeight;
+    const PI = Math.PI;
+    const WIDTH = window.innerWidth;
+    const MAX_RADIUS = 0.1 * WIDTH;
+
+    let context;
+    let droplets = [];
+    let startTime;
+
+    // const DEG2RAD = Math.PI / 180;
+    // const RAD2DEG = 180 / Math.PI;
+
+    /**
+     * Creates an animated droplet on the canvas at the provided coordinates
+     */
+    class Droplet {
+
+        constructor(x, y, colour) {
+            this.x = x;
+            this.y = y;
+            this.colour = colour;
+            this.radius = 10;
+        }
+
+        /**
+         * Draws the droplet at the coordinates with the current radius
+         */
+        draw() {
+            // console.log('draw droplet', this.x, this.y, this.radius);
+            context.beginPath();
+            context.fillStyle = this.colour;
+            context.strokeStyle = this.colour.replace(/([^),]+)\)$/, '1)');
+            context.arc(this.x, this.y, this.radius, 0, 2 * PI);
+            context.stroke();
+            context.fill();
+        }
+
+        /**
+         * Updates the radius of the droplet using Linear Interpolation
+         *
+         * @link https://en.wikipedia.org/wiki/Linear_interpolation
+         * @returns {float} the new radius
+         */
+        update() {
+            // Lineair Interpolation (lerp)
+            //     return -1 * Math.cos(t * (Math.PI / 2)) + 1;
+            this.radius = 0.1 * (MAX_RADIUS - this.radius) + this.radius;
+        }
+
+        /**
+         * returns a boolean indicating whether or not this droplet should be
+         * removed from the canvas. It will be removed when the radius has
+         * reached the maximum value
+         */
+        shouldDestroy() {
+            return Math.ceil(this.radius) >= MAX_RADIUS;
+        }
+    }
+
+    /**
+     * Keyboard controls to handle user input
+     *
+     * @class
+     */
+    class Controls {
+
+        constructor() {
+            this.keyState = {};
+            this.KEYS = {
+                DOWN: 40,  // Down Array Key
+                LEFT: 37,  // Left Arrow Key
+                RIGHT: 39, // Right Arrow Key
+                UP: 38,    // Up Arrow Key
+                SPACE: 32  // Spacebar
+            };
+
+            window.onkeydown = event => {
+                this.keyState[event.keyCode] = true;
+            };
+
+            window.onkeyup = event => {
+                this.keyState[event.keyCode] = false;
+            };
+        }
+
+        isDown(keyCode) {
+            return this.keyState[keyCode] === true;
+        }
+    }
+
+    /**
+     * Returns a string representing a random colour in RGBa
+     *
+     * @returns {string} the random colour in the format: 'rgba(100, 10, 5, 0.7)'
+     */
+    function randomColour() {
+        const r = random(0, 255);
+        const g = random(0, 255);
+        const b = random(0, 255);
+        const a = 0.5; // TODO make random float function random(0, 1, true);
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    /**
+     * Updates the items on the canvase
+     */
+    function update() {
+        // update the droplets
+        droplets = droplets.filter(droplet => {
+            droplet.update();
+            return !droplet.shouldDestroy();
+        });
+    }
+
+    /**
+     * Draws the items on the canvas
+     */
+    function draw() {
+        // draw a droplet
+        // console.log('>> draw %s droplets', droplets.length);
+        droplets.forEach(droplet => droplet.draw());
+    }
+
+    /**
+     * Creates a new droplet with a random colour
+     *
+     */
+    function createDroplet() {
+        const x = random(MAX_RADIUS, WIDTH - MAX_RADIUS);
+        const y = HEIGHT / 2;
+        const droplet = new Droplet(x, y, randomColour());
+        droplets.push(droplet);
+    }
+
+    function eraseCanvas() {
+        context.clearRect(0, 0, WIDTH, HEIGHT);
+    }
+
+    /**
+     * The main game loop
+     *
+     * @param {number} desiredInterval the desired interval in milliseconds
+     */
+    function loop() {
+        update();
+        eraseCanvas();
+        draw();
+
+        // draw at the desired frame rate
+        const now = window.performance.now();
+        const delta = now - (startTime || now);
+        const desiredInterval = 1000 / (BPM / 60);
+
+        if(delta >= desiredInterval) {
+            startTime = window.performance.now();
+            createDroplet();
+        }
+
+        window.requestAnimationFrame(loop);
+    }
+
+    /**
+     * Returns a random integer between minimum (inclusive) and maximum
+     * (exclusive)
+     *
+     * @param {number} minimum the minimum value
+     * @param {number} maximum the maximum value
+     */
+    function random(minimum, maximum) {
+        minimum = Math.ceil(minimum);
+        maximum = Math.floor(maximum);
+        return Math.floor(Math.random() * (maximum - minimum)) + minimum;
+    }
+
+    /**
+     * Initialise the app
+     */
+    function init() {
+        const canvas = document.getElementById('canvas');
+        context = canvas.getContext('2d');
+        canvas.width = WIDTH;
+        canvas.height = HEIGHT;
+        startTime = window.performance.now();
+        loop();
+    }
+
+    init();
+</script>
+</body>
+</html>
