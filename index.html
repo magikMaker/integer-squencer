@@ -177,7 +177,7 @@
      *
      */
     function createDroplet() {
-        const x = random(MAX_RADIUS, WIDTH - MAX_RADIUS);
+        const x = random(MAX_RADIUS / 2, WIDTH - (MAX_RADIUS / 2));
         const y = HEIGHT / 2;
         const droplet = new Droplet(x, y, randomColour());
         droplets.push(droplet);
